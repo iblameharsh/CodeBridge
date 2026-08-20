@@ -18,6 +18,35 @@ body {
   background: inherit;
 }
 
+/* Top bar with user + logout */
+.home-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.home-user {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.logout-btn {
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #d9363e;
+}
+
 /* Glassy dark card */
 .home-card {
   background: rgba(29, 38, 54, 0.85); /* bluish tinted glass */

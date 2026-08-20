@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from './AuthContext';
 import './App.css';
 
 function App() {
   const [inputId, setInputId] = useState('');
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const createNewSession = () => {
@@ -19,9 +21,18 @@ function App() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
     <div className="home-container">
       <div className="home-card">
+        <div className="home-topbar">
+          <span className="home-user">{user?.email}</span>
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+        </div>
         <h1 className="home-title">CodeBridge - Real-Time Code Sharing</h1>
         <button className="create-btn" onClick={createNewSession}>
           ➕ Create New Session
