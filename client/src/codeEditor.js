@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
 import { ArrowLeft, Copy, Check, Languages, LogOut } from 'lucide-react';
 import { useToast } from './components/Toast';
 import OT from './ot';
 import './CodeEditor.css';
+
+// monaco-editor 0.52.x throws during editor.dispose() on React unmount, which
+// blanks the app when navigating back from a session. 0.53.0 is the last
+// release without the unmount crash (0.54/0.55 regressed again).
+loader.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.53.0/min/vs' } });
 
 const SOCKET_URL =
   process.env.REACT_APP_SOCKET_URL ||
