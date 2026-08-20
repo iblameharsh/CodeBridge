@@ -17,6 +17,7 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('CodeBridge crashed:', error, errorInfo);
+    this.setState({ error, errorInfo });
   }
 
   handleReload = () => {
@@ -32,6 +33,10 @@ class ErrorBoundary extends Component {
             <p className="auth-subtitle">
               An unexpected error occurred. Reload to continue.
             </p>
+            <pre style={{ fontSize: 12, textAlign: 'left', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', marginBottom: 16 }}>
+              {String(this.state.error && (this.state.error.message || this.state.error))}
+              {this.state.errorInfo && '\n\n' + String(this.state.errorInfo.componentStack || '')}
+            </pre>
             <button className="btn btn-primary btn-lg auth-submit" onClick={this.handleReload}>
               Reload
             </button>
