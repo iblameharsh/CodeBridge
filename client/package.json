@@ -11,6 +11,7 @@
     "bootstrap": "^5.3.7",
     "codebridge": "file:..",
     "firebase": "^11.9.1",
+    "lucide-react": "^1.33.0",
     "prismjs": "^1.30.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

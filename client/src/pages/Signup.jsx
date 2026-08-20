@@ -3,6 +3,7 @@ import { auth } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { Code2, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import './Signup.css';
 
 const friendlyError = (code, message) => {
@@ -30,6 +31,7 @@ const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +41,12 @@ const Signup = () => {
   const from = location.state?.from?.pathname || '/home';
 
   if (loading) {
-    return <div className="auth-loading">Loading…</div>;
+    return (
+      <div className="page-loader">
+        <Loader2 className="spinner" size={28} />
+        <span>Loading…</span>
+      </div>
+    );
   }
 
   if (user) {
@@ -78,54 +85,92 @@ const Signup = () => {
   };
 
   return (
-    <div className="signup-container">
-      <div className="signup-card">
-        <h1 className="signup-heading">CodeBridge</h1>
-        <p className="signup-subtitle">
-          {showLogin ? 'Login to join a live coding session' : 'Create an account to start collaborating'}
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <Code2 size={26} />
+        </div>
+        <h1 className="auth-title">CodeBridge</h1>
+        <p className="auth-subtitle">
+          {showLogin ? 'Welcome back — login to your session' : 'Create your account to start collaborating'}
         </p>
-        <form onSubmit={handleSubmit} className="signup-form">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Password (min 6 characters)"
-            value={password}
-            required
-            minLength="6"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {!showLogin && (
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-field">
+            <Mail size={18} className="auth-field-icon" />
             <input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
+              type="email"
+              className="input"
+              placeholder="Email"
+              value={email}
               required
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
+          </div>
+
+          <div className="auth-field">
+            <Lock size={18} className="auth-field-icon" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              className="input"
+              placeholder="Password (min 6 characters)"
+              value={password}
+              required
+              minLength="6"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              className="auth-toggle-pass"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {!showLogin && (
+            <div className="auth-field">
+              <Lock size={18} className="auth-field-icon" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                required
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
           )}
-          <button type="submit" className="signup-submit" disabled={submitting}>
-            {submitting ? 'Please wait…' : showLogin ? 'Login' : 'Sign Up'}
+
+          {error && <p className="auth-error">{error}</p>}
+
+          <button type="submit" className="btn btn-primary btn-lg auth-submit" disabled={submitting}>
+            {submitting ? (
+              <>
+                <Loader2 className="spinner" size={18} />
+                Please wait…
+              </>
+            ) : showLogin ? (
+              'Login'
+            ) : (
+              'Sign Up'
+            )}
           </button>
-          {error && <p className="error-text">{error}</p>}
         </form>
-        <div className="switch-auth">
+
+        <div className="auth-switch">
           {showLogin ? (
             <p>
-              Don't have an account?{' '}
-              <button type="button" className="switch-auth-btn" onClick={() => switchMode(false)}>
+              Don&apos;t have an account?{' '}
+              <button type="button" onClick={() => switchMode(false)}>
                 Sign Up
               </button>
             </p>
           ) : (
             <p>
               Already have an account?{' '}
-              <button type="button" className="switch-auth-btn" onClick={() => switchMode(true)}>
+              <button type="button" onClick={() => switchMode(true)}>
                 Login
               </button>
             </p>

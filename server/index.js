@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const OT = require('../client/src/ot');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,37 +26,107 @@ const io = new Server(server, {
   }
 });
 
-// Store code+language per room
-const roomState = {};
+const HISTORY_LIMIT = 200;
+// roomId -> { code, language, rev, history: [{rev, clientId, ops}], clients: Set<socketId> }
+const rooms = new Map();
+
+function getRoom(roomId) {
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, {
+      code: '',
+      language: 'javascript',
+      rev: 0,
+      history: [],
+      clients: new Set()
+    });
+  }
+  return rooms.get(roomId);
+}
+
+function getClientId(socket) {
+  return (socket.handshake.query && socket.handshake.query.clientId) || socket.id;
+}
+
+function cleanupRoom(roomId, socket) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  room.clients.delete(socket.id);
+  console.log(`👋 ${socket.id} left room ${roomId}`);
+  if (room.clients.size === 0) {
+    rooms.delete(roomId);
+    console.log(`🧹 Room ${roomId} cleaned up`);
+  }
+}
 
 io.on('connection', (socket) => {
-  console.log('🔌 A user connected:', socket.id);
+  const socketClientId = getClientId(socket);
+  console.log('🔌 A user connected:', socket.id, 'client:', socketClientId);
 
-  // Join a room
-  socket.on('join', (roomId) => {
+  socket.on('join', (payload) => {
+    const roomId = payload.roomId;
+    const room = getRoom(roomId);
     socket.join(roomId);
+    room.clients.add(socket.id);
     console.log(`📥 ${socket.id} joined room: ${roomId}`);
-
-    if (roomState[roomId]) {
-      socket.emit('code-change', roomState[roomId]);
-    }
+    socket.emit('snapshot', { rev: room.rev, code: room.code, language: room.language });
   });
 
-  socket.on('code-change', ({ roomId, code, language }) => {
-    roomState[roomId] = { code, language };
-    socket.to(roomId).emit('code-change', { code, language });
+  socket.on('request-snapshot', (payload) => {
+    const room = getRoom(payload.roomId);
+    socket.emit('snapshot', { rev: room.rev, code: room.code, language: room.language });
+  });
+
+  socket.on('edit', (payload) => {
+    const roomId = payload.roomId;
+    const room = getRoom(roomId);
+    const { opId, baseRev, ops } = payload;
+    const clientId = (ops && ops.clientId) || payload.clientId || socketClientId;
+
+    const oldestRev = room.history.length ? room.history[0].rev : 0;
+    // baseRev + 1 < oldestRev means the client is behind by more than one op
+    // (gaps in history make exact transformation impossible); baseRev > room.rev
+    // means the client is ahead of us. Both require a resync.
+    if (baseRev + 1 < oldestRev || baseRev > room.rev) {
+      socket.emit('resync', {
+        reason: 'baseRev-out-of-range',
+        baseRev,
+        minRev: oldestRev,
+        curRev: room.rev
+      });
+      return;
+    }
+
+    // Transform the incoming op against every history op the client has not
+    // seen (rev > baseRev). The single-outstanding-op client never sends with
+    // a baseRev that still includes its own unacked op, so no clientId filter
+    // is needed (matches ot.js).
+    let transformed = ops;
+    for (const entry of room.history) {
+      if (entry.rev > baseRev) {
+        transformed = OT.opTransform(transformed, entry.ops)[0];
+      }
+    }
+
+    room.code = OT.applyOps(room.code, transformed);
+    room.rev += 1;
+    room.history.push({ rev: room.rev, clientId, ops: transformed });
+    if (room.history.length > HISTORY_LIMIT) {
+      room.history.splice(0, room.history.length - HISTORY_LIMIT);
+    }
+
+    socket.to(roomId).emit('op', { rev: room.rev, ops: transformed, clientId });
+    socket.emit('ack', { opId, rev: room.rev, ops: transformed });
+  });
+
+  socket.on('language-change', (payload) => {
+    const room = getRoom(payload.roomId);
+    room.language = payload.language;
+    socket.to(payload.roomId).emit('language-change', { language: payload.language });
   });
 
   socket.on('disconnecting', () => {
-    const rooms = Array.from(socket.rooms).filter(r => r !== socket.id);
-    rooms.forEach(roomId => {
-      const room = io.sockets.adapter.rooms.get(roomId);
-      if (!room || room.size <= 1) {
-        delete roomState[roomId];
-        console.log(`🧹 Room ${roomId} cleaned up`);
-      }
-      console.log(`👋 ${socket.id} is leaving room: ${roomId}`);
-    });
+    const roomsJoined = Array.from(socket.rooms).filter((r) => r !== socket.id);
+    roomsJoined.forEach((roomId) => cleanupRoom(roomId, socket));
   });
 
   socket.on('disconnect', () => {
@@ -64,7 +135,7 @@ io.on('connection', (socket) => {
 
   socket.on('leave', (roomId) => {
     socket.leave(roomId);
-    console.log(`👋 ${socket.id} left room: ${roomId}`);
+    cleanupRoom(roomId, socket);
   });
 });
 
